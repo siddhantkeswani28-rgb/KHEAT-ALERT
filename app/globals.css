@@ -1,0 +1,147 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 45% 97%;
+    --foreground: 220 40% 8%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 40% 8%;
+    --primary: 200 98% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 30% 92%;
+    --secondary-foreground: 220 40% 12%;
+    --muted: 220 20% 94%;
+    --muted-foreground: 220 15% 40%;
+    --accent: 200 90% 92%;
+    --accent-foreground: 200 80% 20%;
+    --destructive: 0 84% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 20% 88%;
+    --input: 220 20% 88%;
+    --ring: 200 98% 45%;
+    --radius: 0.75rem;
+  }
+  .dark {
+    --background: 222 47% 5%;
+    --foreground: 210 40% 98%;
+    --card: 222 45% 8%;
+    --card-foreground: 210 40% 98%;
+    --primary: 195 100% 55%;
+    --primary-foreground: 222 47% 5%;
+    --secondary: 217 32% 15%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 32% 12%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 32% 18%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 32% 18%;
+    --input: 217 32% 18%;
+    --ring: 195 100% 55%;
+  }
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; font-feature-settings: "cv02","cv03","cv04","cv11"; }
+}
+
+/* ============ 3D / AESTHETIC ============ */
+.glass {
+  background: rgba(255,255,255,0.55);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255,255,255,0.4);
+}
+.dark .glass {
+  background: rgba(15,23,42,0.55);
+  border: 1px solid rgba(148,163,184,0.15);
+}
+
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(56,189,248,0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56,189,248,0.08) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.mesh-bg {
+  background:
+    radial-gradient(60% 50% at 20% 20%, rgba(56,189,248,0.35) 0%, transparent 60%),
+    radial-gradient(50% 40% at 80% 30%, rgba(139,92,246,0.28) 0%, transparent 60%),
+    radial-gradient(50% 50% at 60% 80%, rgba(236,72,153,0.22) 0%, transparent 60%),
+    radial-gradient(70% 60% at 10% 90%, rgba(16,185,129,0.22) 0%, transparent 60%);
+}
+.dark .mesh-bg {
+  background:
+    radial-gradient(60% 50% at 20% 20%, rgba(56,189,248,0.28) 0%, transparent 60%),
+    radial-gradient(50% 40% at 80% 30%, rgba(139,92,246,0.28) 0%, transparent 60%),
+    radial-gradient(50% 50% at 60% 80%, rgba(236,72,153,0.18) 0%, transparent 60%),
+    radial-gradient(70% 60% at 10% 90%, rgba(16,185,129,0.16) 0%, transparent 60%);
+}
+
+.card-3d {
+  transform-style: preserve-3d;
+  transition: transform .4s cubic-bezier(.2,.8,.2,1), box-shadow .4s;
+}
+.card-3d:hover {
+  transform: perspective(1000px) rotateX(3deg) rotateY(-4deg) translateY(-4px);
+  box-shadow: 0 30px 60px -20px rgba(2,132,199,0.35);
+}
+
+/* Rotating cyclone animation */
+@keyframes swirl {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes swirl-rev {
+  from { transform: rotate(360deg); }
+  to   { transform: rotate(0deg); }
+}
+.swirl-slow { animation: swirl 40s linear infinite; }
+.swirl-med  { animation: swirl 22s linear infinite; }
+.swirl-fast { animation: swirl 12s linear infinite; }
+.swirl-rev  { animation: swirl-rev 30s linear infinite; }
+
+@keyframes pulse-glow {
+  0%,100% { opacity: .6; transform: scale(1); }
+  50%     { opacity: 1;  transform: scale(1.15); }
+}
+.pulse-glow { animation: pulse-glow 2.4s ease-in-out infinite; }
+
+@keyframes float {
+  0%,100% { transform: translateY(0); }
+  50%     { transform: translateY(-8px); }
+}
+.float { animation: float 5s ease-in-out infinite; }
+
+@keyframes ripple {
+  0%   { transform: scale(0.6); opacity: 0.9; }
+  100% { transform: scale(3); opacity: 0; }
+}
+.ripple { animation: ripple 2.4s ease-out infinite; }
+
+@keyframes scan {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+.scan-line { animation: scan 4s linear infinite; }
+
+.neon-text {
+  text-shadow: 0 0 15px rgba(56,189,248,0.6), 0 0 40px rgba(56,189,248,0.35);
+}
+
+.risk-red    { background: linear-gradient(135deg,#ef4444,#b91c1c); }
+.risk-orange { background: linear-gradient(135deg,#f97316,#c2410c); }
+.risk-yellow { background: linear-gradient(135deg,#eab308,#a16207); }
+.risk-green  { background: linear-gradient(135deg,#22c55e,#15803d); }
+
+.scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: hsl(var(--muted-foreground)/0.4); border-radius: 4px; }
+
+.map-container { filter: drop-shadow(0 20px 40px rgba(2,132,199,0.25)); }
+
+@keyframes dash {
+  to { stroke-dashoffset: -1000; }
+}
+.dash-flow { stroke-dasharray: 6 8; animation: dash 30s linear infinite; }
