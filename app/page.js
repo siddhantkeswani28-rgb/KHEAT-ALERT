@@ -1,17 +1,18 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Flame, Waves, Zap, Sun, Activity, Moon, SunMedium,
   MapPin, ShieldAlert, Clock, Database, Printer, Send,
   Users, Hospital, School, Home as HomeIcon, Satellite,
   Radio, AlertTriangle, TrendingUp, Layers, Wind, Droplets, Thermometer,
-  ExternalLink, CheckCircle2, Sparkles
+  ExternalLink, CheckCircle2, Sparkles, Bot, X, Loader2, MessageSquare, Wand2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Progress } from '@/components/ui/progress'
+import { Textarea } from '@/components/ui/textarea'
 
 const I18N = {
   en: {
@@ -105,6 +106,150 @@ const DATA_SOURCES = [
 const riskColor = (v) => v >= 70 ? 'risk-red' : v >= 50 ? 'risk-orange' : v >= 30 ? 'risk-yellow' : 'risk-green'
 const riskLabel = (v) => v >= 70 ? 'High' : v >= 50 ? 'Elevated' : v >= 30 ? 'Moderate' : 'Low'
 const sevBg = { red:'border-red-500/60 bg-red-500/10', orange:'border-orange-500/60 bg-orange-500/10', yellow:'border-yellow-500/60 bg-yellow-500/10' }
+
+/* ============== AI ASSISTANT (Claude) ============== */
+function AIAssistant({ open, onClose, lang, village, hazard, t }) {
+  const [messages, setMessages] = useState([])
+  const [input, setInput] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [sessionId] = useState(() => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now())))
+  const scrollRef = useRef(null)
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+  }, [messages, busy])
+
+  useEffect(() => {
+    if (open && messages.length === 0) {
+      const greet = {
+        en: `Hello — I'm the KhetAlert AI assistant. I can explain the current ${t.hazards[hazard]} risk for ${village?.name || 'your village'}, translate alerts, or answer safety questions. Ask me anything.`,
+        hi: `\u0928\u092e\u0938\u094d\u0924\u0947 — \u092e\u0948\u0902 \u0916\u0947\u0924\u0905\u0932\u0930\u094d\u091f AI \u0938\u0939\u093e\u092f\u0915 \u0939\u0942\u0902\u0964 ${village?.name || '\u0906\u092a\u0915\u0947 \u0917\u093e\u0902\u0935'} \u0915\u0947 \u0932\u093f\u090f \u092e\u094c\u091c\u0942\u0926\u093e ${t.hazards[hazard]} \u091c\u094b\u0916\u093f\u092e \u0938\u092e\u091d\u093e \u0938\u0915\u0924\u093e \u0939\u0942\u0902, \u091a\u0947\u0924\u093e\u0935\u0928\u0940 \u0905\u0928\u0941\u0935\u093e\u0926 \u0915\u0930 \u0938\u0915\u0924\u093e \u0939\u0942\u0902, \u092f\u093e \u0938\u0941\u0930\u0915\u094d\u0937\u093e-\u092a\u094d\u0930\u0936\u094d\u0928\u094b\u0902 \u0915\u093e \u0909\u0924\u094d\u0924\u0930 \u0926\u0947 \u0938\u0915\u0924\u093e \u0939\u0942\u0902\u0964`,
+        mr: `\u0928\u092e\u0938\u094d\u0915\u093e\u0930 — \u092e\u0940 \u0936\u0947\u0924\u0905\u0932\u0930\u094d\u091f AI \u0938\u0939\u093e\u092f\u094d\u092f\u0915 \u0906\u0939\u0947. ${village?.name || '\u0906\u092a\u0932\u094d\u092f\u093e \u0917\u093e\u0935\u093e'}\u091a\u094d\u092f\u093e \u0906\u091c\u091a\u094d\u092f\u093e ${t.hazards[hazard]} \u091c\u094b\u0916\u092e\u0940\u092c\u0926\u094d\u0926\u0932 \u0938\u094b\u092a\u094d\u092f\u093e \u092d\u093e\u0937\u0947\u0924 \u0938\u093e\u0902\u0917\u0942 \u0936\u0915\u0924\u094b, \u0907\u0936\u093e\u0930\u0947 \u092d\u093e\u0937\u093e\u0902\u0924\u0930\u093f\u0924 \u0915\u0930\u0924\u094b, \u0915\u093f\u0902\u0935\u093e \u0938\u0941\u0930\u0915\u094d\u0937\u093e-\u092a\u094d\u0930\u0936\u094d\u0928\u093e\u0902\u091a\u0947 \u0909\u0924\u094d\u0924\u0930 \u0926\u0947\u0924\u094b.`,
+      }[lang]
+      setMessages([{ role: 'assistant', text: greet }])
+    }
+  }, [open])
+
+  const askAI = async (question, kind = 'safety') => {
+    if (!question.trim() || busy) return
+    setMessages((m) => [...m, { role: 'user', text: question }])
+    setInput(''); setBusy(true)
+    try {
+      const hazardCtx = village ? {
+        village: village.name, hazard,
+        riskScore: village.risks[hazard], population: village.pop,
+        vulnerabilityIndex: village.vuln, updatedMinutesAgo: 8, confidence: 0.78,
+      } : null
+      const res = await fetch('/api/ai', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind, question, language: lang, hazard: hazardCtx, sessionId })
+      })
+      const data = await res.json()
+      const text = data.answer || data.error || 'No response.'
+      setMessages((m) => [...m, { role: 'assistant', text, model: data.model }])
+    } catch (e) {
+      setMessages((m) => [...m, { role: 'assistant', text: 'Network error — please try again.' }])
+    } finally { setBusy(false) }
+  }
+
+  if (!open) return null
+
+  const suggestions = {
+    en: [
+      `Explain the ${t.hazards[hazard]} risk for ${village?.name || 'this village'}`,
+      `What should farmers do in the next 24 hours?`,
+      `Translate "Take shelter and move livestock to higher ground" into Marathi`,
+    ],
+    hi: [
+      `${village?.name || '\u0907\u0938 \u0917\u093e\u0902\u0935'} \u0915\u0947 \u0932\u093f\u090f ${t.hazards[hazard]} \u091c\u094b\u0916\u093f\u092e \u0938\u092e\u091d\u093e\u090f\u0902`,
+      `\u0905\u0917\u0932\u0947 24 \u0918\u0902\u091f\u094b\u0902 \u092e\u0947\u0902 \u0915\u093f\u0938\u093e\u0928\u094b\u0902 \u0915\u094b \u0915\u094d\u092f\u093e \u0915\u0930\u0928\u093e \u091a\u093e\u0939\u093f\u090f?`,
+      `"\u092a\u0936\u0941\u0913\u0902 \u0915\u094b \u090a\u0902\u091a\u0947 \u0938\u094d\u0925\u093e\u0928 \u092a\u0930 \u0932\u0947 \u091c\u093e\u090f\u0902" \u0915\u093e \u092e\u0930\u093e\u0920\u0940 \u092e\u0947\u0902 \u0905\u0928\u0941\u0935\u093e\u0926`,
+    ],
+    mr: [
+      `${village?.name || '\u092f\u093e \u0917\u093e\u0935\u093e'}\u0938\u093e\u0920\u0940 ${t.hazards[hazard]} \u091c\u094b\u0916\u092e\u0940 \u0938\u092e\u091c\u093e\u0935\u0942\u0928 \u0938\u093e\u0902\u0917\u093e`,
+      `\u092a\u0941\u0922\u0940\u0932 24 \u0924\u093e\u0938\u093e\u0902\u0924 \u0936\u0947\u0924\u0915\u0930\u094d\u092f\u093e\u0902\u0928\u0940 \u0915\u093e\u092f \u0915\u0930\u093e\u0935\u0947?`,
+      `"\u0917\u0941\u0930\u0947 \u0909\u0902\u091a \u091c\u093e\u0917\u0940 \u0928\u0947\u093e" \u0939\u0947 \u0939\u093f\u0902\u0926\u0940\u0924 \u092d\u093e\u0937\u093e\u0902\u0924\u0930\u093f\u0924 \u0915\u0930\u093e`,
+    ],
+  }[lang]
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-end md:items-center md:justify-end" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm"/>
+      <div onClick={(e)=>e.stopPropagation()}
+        className="relative w-full md:w-[440px] h-[85vh] md:h-[92vh] md:mr-6 bg-card/95 backdrop-blur-xl rounded-t-3xl md:rounded-3xl border border-border shadow-2xl flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="p-4 border-b flex items-center gap-3 bg-gradient-to-r from-cyan-500/10 to-blue-600/10">
+          <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 grid place-items-center shadow-lg shadow-cyan-500/40">
+            <Bot className="w-5 h-5 text-white"/>
+            <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-400 pulse-glow"/>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold flex items-center gap-2">KhetAlert AI <Badge variant="outline" className="text-[10px] gap-1"><Sparkles className="w-2.5 h-2.5"/>Claude Sonnet 4.6</Badge></div>
+            <div className="text-[11px] text-muted-foreground truncate">{village?.name || '—'} · {t.hazards[hazard]} · {lang.toUpperCase()}</div>
+          </div>
+          <Button variant="ghost" size="icon" onClick={onClose}><X className="w-4 h-4"/></Button>
+        </div>
+
+        {/* Messages */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin">
+          {messages.map((m, i) => (
+            <div key={i} className={`flex gap-2 ${m.role==='user' ? 'justify-end' : ''}`}>
+              {m.role === 'assistant' && (
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-600 grid place-items-center flex-shrink-0">
+                  <Bot className="w-4 h-4 text-white"/>
+                </div>
+              )}
+              <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
+                m.role==='user'
+                  ? 'bg-primary text-primary-foreground rounded-br-sm'
+                  : 'bg-muted text-foreground rounded-bl-sm'}`}>
+                {m.text}
+              </div>
+            </div>
+          ))}
+          {busy && (
+            <div className="flex gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-600 grid place-items-center flex-shrink-0">
+                <Bot className="w-4 h-4 text-white"/>
+              </div>
+              <div className="bg-muted rounded-2xl px-4 py-3 text-sm flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="w-3.5 h-3.5 animate-spin"/> Thinking…
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Suggestions */}
+        {messages.length <= 1 && (
+          <div className="px-4 pb-2 flex flex-wrap gap-2">
+            {suggestions.map((s, i) => (
+              <button key={i} onClick={() => askAI(s, i===2 ? 'translate' : i===0 ? 'explain' : 'safety')}
+                className="text-[11px] px-3 py-1.5 rounded-full glass hover:bg-primary hover:text-primary-foreground transition text-left">
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Input */}
+        <div className="p-3 border-t bg-background/50">
+          <div className="flex gap-2 items-end">
+            <Textarea value={input} onChange={(e)=>setInput(e.target.value)}
+              onKeyDown={(e)=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); askAI(input) } }}
+              placeholder={lang==='mr' ? 'तुमचा प्रश्न लिहा…' : lang==='hi' ? 'अपना प्रश्न लिखें…' : 'Ask about hazards, safety, translation…'}
+              className="min-h-[42px] max-h-[120px] resize-none text-sm"/>
+            <Button size="icon" onClick={()=>askAI(input)} disabled={busy || !input.trim()} className="shrink-0">
+              {busy ? <Loader2 className="w-4 h-4 animate-spin"/> : <Send className="w-4 h-4"/>}
+            </Button>
+          </div>
+          <div className="text-[10px] text-muted-foreground mt-1.5 flex items-center gap-1">
+            <ShieldAlert className="w-3 h-3"/> AI-generated. Not a substitute for official IMD/NDMA alerts.
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function CycloneHero() {
   return (
@@ -245,7 +390,7 @@ function TopThreatCard({ hazard, t }) {
   )
 }
 
-function VillageDetail({ v, hazard, t }) {
+function VillageDetail({ v, hazard, t, onAskAI }) {
   if (!v) return null
   const hz = HAZARDS.find(h => h.id === hazard)
   const factorsMap = {
@@ -289,6 +434,11 @@ function VillageDetail({ v, hazard, t }) {
           <div className="glass rounded-xl p-2"><div className="text-xs text-muted-foreground">Pop.</div><div className="font-semibold text-sm">{(v.pop/1000).toFixed(0)}k</div></div>
         </div>
         <div className="flex flex-wrap gap-2 pt-2">
+          {onAskAI && (
+            <Button size="sm" onClick={onAskAI} className="gap-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white border-0">
+              <Wand2 className="w-3 h-3"/>Explain with AI
+            </Button>
+          )}
           <a href="https://mausam.imd.gov.in/nagpur/" target="_blank" rel="noreferrer"><Button variant="outline" size="sm" className="gap-1.5"><ExternalLink className="w-3 h-3"/>IMD Nagpur</Button></a>
           <a href="https://ndma.gov.in/" target="_blank" rel="noreferrer"><Button variant="outline" size="sm" className="gap-1.5"><ExternalLink className="w-3 h-3"/>NDMA</Button></a>
         </div>
@@ -424,6 +574,7 @@ function App() {
   const [hazard, setHazard] = useState('flood')
   const [tab, setTab] = useState('home')
   const [selected, setSelected] = useState(VILLAGES[6])
+  const [aiOpen, setAiOpen] = useState(false)
 
   useEffect(() => { document.documentElement.classList.toggle('dark', dark) }, [dark])
   const t = I18N[lang]
@@ -514,7 +665,7 @@ function App() {
             </div>
             {selected && (
               <div className="grid lg:grid-cols-2 gap-5">
-                <VillageDetail v={selected} hazard={hazard} t={t}/>
+                <VillageDetail v={selected} hazard={hazard} t={t} onAskAI={() => setAiOpen(true)}/>
                 <Card className="card-3d">
                   <CardHeader><CardTitle className="text-base">All hazards for {selected.name}</CardTitle></CardHeader>
                   <CardContent className="space-y-3">
@@ -550,7 +701,7 @@ function App() {
               </CardContent>
             </Card>
             <div className="grid lg:grid-cols-2 gap-5">
-              <VillageDetail v={selected} hazard={hazard} t={t}/>
+              <VillageDetail v={selected} hazard={hazard} t={t} onAskAI={() => setAiOpen(true)}/>
               <Card className="card-3d">
                 <CardHeader><CardTitle className="text-base">All hazards — {selected?.name}</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
@@ -594,6 +745,24 @@ function App() {
           KhetAlert — open-source, community-driven early warning · Not an official emergency service. Always defer to IMD &amp; NDMA.
         </footer>
       </main>
+
+      {/* Floating AI button */}
+      <button
+        onClick={() => setAiOpen(true)}
+        className="fixed bottom-6 right-6 z-50 group flex items-center gap-2 pl-3 pr-4 py-3 rounded-full bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 text-white shadow-2xl shadow-cyan-500/40 hover:scale-105 transition-all"
+        aria-label="Open AI Assistant"
+      >
+        <span className="relative flex items-center justify-center w-7 h-7 rounded-full bg-white/15">
+          <Bot className="w-4 h-4"/>
+          <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 pulse-glow"/>
+        </span>
+        <span className="font-semibold text-sm hidden sm:inline">
+          {lang==='mr' ? 'AI ला विचारा' : lang==='hi' ? 'AI से पूछें' : 'Ask AI'}
+        </span>
+        <Sparkles className="w-3.5 h-3.5 opacity-80"/>
+      </button>
+
+      <AIAssistant open={aiOpen} onClose={() => setAiOpen(false)} lang={lang} village={selected} hazard={hazard} t={t}/>
     </div>
   )
 }
