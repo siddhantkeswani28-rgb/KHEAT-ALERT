@@ -1,0 +1,10 @@
+{
+  "name": "ResqAI-Map",
+  "short_name": "ResqAI",
+  "description": "Emergency response & disaster mitigation platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#f97316",
+  "icons": []
+}
